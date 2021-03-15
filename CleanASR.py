@@ -197,7 +197,7 @@ def asr_process_r(Data_ASR_Process,SamplingRate,State,WindowLength=0.1,LookAhead
                 A[1,:,:] = State["cov"]
                 Xcov = positive_definite_karcher_mean(A)
                 
-            update_at = np.arange(StepSize,X.shape[1]+StepSize-1+StepSize,StepSize)
+            update_at = np.arange(StepSize,X.shape[1]+StepSize-1+1e-8,StepSize)
             update_at[np.where(update_at > X.shape[1])] = X.shape[1]
             # if there is no previous R (from the end of the last chunk), we estimate it right at the first sample
             if not len(State["last_R"]) > 0:
@@ -361,6 +361,8 @@ def asr_calibrate_r(Data_ASR_Calib,SamplingRate,RejectionCutoff=3,Blocksize=10,F
                     WindowLength=0.1,WindowOverlap=0.5,MaxDropoutFraction=0.1,MinCleanFraction=0.3):
     
     C, S = Data_ASR_Calib.shape
+    C = int(C)
+    S = int(S)
     if (not FilterA or not FilterB):
     # yulewalk filter coefficients
         if SamplingRate == 100:
@@ -368,6 +370,11 @@ def asr_calibrate_r(Data_ASR_Calib,SamplingRate,RejectionCutoff=3,Blocksize=10,F
                         -0.654913103869222,-0.037258351804688,0.191626845875261,0.046241197159235])
             FilterA=np.array([1,-0.454422018030376,-1.000703868293683,0.537492552133784,0.490501336099142,
                         -0.486106287935112,-0.199598649069948,0.183004842073003,0.045767854923467])
+        elif SamplingRate == 125:
+            FilterB=np.array([1.087423167955396, -1.836435553816374, 0.573976014496824, 0.361020603610170, 0.059271456186474,
+                        0.076763175985072, -0.498304757808424, 0.276872948140515, -0.006930792028036])
+            FilterA=np.array([1.000000000000000, -0.983952187817050, -0.520232502560362, 0.603540557711479, 0.116893105621457,
+                        -0.029126160924775, -0.282359853603720, 0.040784793357921, 0.103437108246108])
         elif SamplingRate == 128:
             FilterB=np.array([1.102730163916508,-2.002562181361187,0.894211951648128,0.154997952422709,0.019236690448804,
                         0.178289777027871,-0.528030669649869,0.291354060340750,-0.026220980252637])
@@ -419,10 +426,10 @@ def asr_calibrate_r(Data_ASR_Calib,SamplingRate,RejectionCutoff=3,Blocksize=10,F
         print('The IIR filter diverged on your data. Please try using either a more conservative filter or removing some bad sections/channels from the calibration data.')
         
     # calculate the sample covariance matrices U (averaged in blocks of blocksize successive samples)
-    U = np.zeros((len(np.arange(1,S+Blocksize,Blocksize)),C*C))
+    U = np.zeros((len(np.arange(1,S+1e-8,Blocksize)),C*C))
 
     for k in np.arange(1,Blocksize+1):
-        block_range = np.arange(k,(S+k-1)+Blocksize,Blocksize)
+        block_range = np.arange(k,(S+k-1)+1e-8,Blocksize).astype(int)
         block_range[block_range>S] = S
         U = U + np.reshape(np.reshape(Data_ASR_Calib[block_range-1,:],(-1,1,C))*np.reshape(Data_ASR_Calib[block_range-1,:],(-1,C,1)),np.shape(U))
     
@@ -446,7 +453,7 @@ def asr_calibrate_r(Data_ASR_Calib,SamplingRate,RejectionCutoff=3,Blocksize=10,F
     for c in np.arange(C-1,-1,-1):
         # compute RMS amplitude for each window...
         rms = Data_ASR_Calib[:,c]**2
-        rms = np.sqrt(np.sum(rms[(np.round(np.arange(1,S-N+N*(1-WindowOverlap),N*(1-WindowOverlap))+1e-8)+np.arange(N).reshape(-1,1) - 1).astype(int)],axis=0)/N)
+        rms = np.sqrt(np.sum(rms[(np.round(np.arange(1,S-N+1e-8,N*(1-WindowOverlap))+1e-8)+np.arange(N).reshape(-1,1) - 1).astype(int)],axis=0)/N)
         # fit a distribution to the clean part
         
         [mu[c],sig[c],_,_] = fit_eeg_distribution(rms,MinCleanFraction,MaxDropoutFraction)
@@ -464,7 +471,7 @@ def asr_calibrate_r(Data_ASR_Calib,SamplingRate,RejectionCutoff=3,Blocksize=10,F
 
 
 def fit_eeg_distribution(X_fit_EEG, MinCleanFraction = 0.25, MaxDropoutFraction = 0.1, FitQuantiles = [0.022, 0.6],
-                         StepSizes = [0.01, 0.01], ShapeRange = np.arange(1.7, 3.5 + 0.15, 0.15)):
+                         StepSizes = [0.01, 0.01], ShapeRange = np.arange(1.7, 3.5+1e-8, 0.15)):
     
     X_fit_EEG = np.array(sorted(X_fit_EEG))
     n = len(X_fit_EEG);
@@ -484,7 +491,7 @@ def fit_eeg_distribution(X_fit_EEG, MinCleanFraction = 0.25, MaxDropoutFraction 
     X_fit_EEG = X_fit_EEG-X1
     opt_val = np.inf
     # for each interval width...
-    for m in np.round(n*np.arange(max_width,min_width,-StepSizes[1])+1e-8).astype(int):
+    for m in np.round(n*np.arange(max_width,min_width-1e-8,-StepSizes[1])+1e-8).astype(int):
         # scale and bin the data in the intervals
         nbins = np.round(3*np.log2(1+m/2)+1e-8).astype(int)
         H = X_fit_EEG[:m,:]*nbins/X_fit_EEG[m-1,:]
@@ -494,7 +501,7 @@ def fit_eeg_distribution(X_fit_EEG, MinCleanFraction = 0.25, MaxDropoutFraction 
         for b in range(len(ShapeRange)):
             bounds = zbounds[b]
             # evaluate truncated generalized Gaussian pdf at bin centers
-            x = bounds[0]+np.arange(0.5,nbins)/nbins*np.diff(bounds)
+            x = bounds[0]+np.arange(0.5,nbins-0.5+1e-8)/nbins*np.diff(bounds)
             p = np.exp(-abs(x)**ShapeRange[b])*rescale[b]
             p = p.reshape(-1,1)/np.sum(p)
 
@@ -528,7 +535,7 @@ def fit_eeg_distribution(X_fit_EEG, MinCleanFraction = 0.25, MaxDropoutFraction 
 def clean_windows(Signal_Clean_Windows, SRate, MaxBadChannels = 0.2, PowerTolerances = [-3.5, 5], WindowLength = 1,
                   WindowOverlap = 2/3, MaxDropoutFraction = 0.1,
                   MinCleanFraction = 0.25, TruncateQuantile = [0.022, 0.6],
-                  StepSizes = [0.01, 0.01], ShapeRange = np.arange(1.7,3.5 + 0.15, 0.15)):
+                  StepSizes = [0.01, 0.01], ShapeRange = np.arange(1.7,3.5+1e-8, 0.15)):
     
     if (MaxBadChannels > 0 and MaxBadChannels < 1):
         MaxBadChannels = np.round(len(Signal_Clean_Windows)*MaxBadChannels+1e-8).astype(int)
@@ -537,7 +544,7 @@ def clean_windows(Signal_Clean_Windows, SRate, MaxBadChannels = 0.2, PowerTolera
     
     N = WindowLength*SRate
     wnd = np.arange(N).astype(int)
-    offsets = np.round(np.arange(1, S-N + N*(1-WindowOverlap), N*(1-WindowOverlap))+1e-8).astype(int)
+    offsets = np.round(np.arange(1, S-N+1e-8, N*(1-WindowOverlap))+1e-8).astype(int)
     ind = offsets + wnd.reshape(-1,1) - 1
     print("Determining time window rejection thresholds...")
     
