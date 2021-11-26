@@ -1,6 +1,6 @@
 # EEG-ASR-Python
-Clean ASR (Artifact Subspace Reconstruction) in Python
-After installing “pymanopt” package, replace the file “trust_regions.py” in the folder “/Users/user/opt/anaconda3/lib/python3.8/site-packages/pymanopt/solvers/” with “trust_regions.py” in available in the repository.
+Clean ASR (Artifact Subspace Reconstruction) in Python\n
+After installing “pymanopt” package, replace the file “trust_regions.py” in the folder “/Users/user/opt/anaconda3/lib/python3.8/site-packages/pymanopt/solvers/” \nwith “trust_regions.py” in available in the repository.
 Replace the file “_tensorflow.py” in the folder “/Users/user/opt/anaconda3/lib/python3.8/site-packages/pymanopt/tools/autodiff/” with the one available in the repository.
 Open “Main.py”
 Set Low and High edges of the Bandpass filter (line 18)
